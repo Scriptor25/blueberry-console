@@ -1,0 +1,9 @@
+cd ../../
+echo Build...
+colcon build --packages-select blueberry-console
+echo Done.
+echo Source...
+source ~/.bashrc
+echo Done.
+echo Run...
+ros2 run blueberry-console blueberry_node
