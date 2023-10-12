@@ -11,10 +11,33 @@ find_package(ament_cmake REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(blueberry_node src/blueberry_node.cpp)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+
+cmake_policy(SET CMP0072 NEW)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(glfw3 3.3 REQUIRED)
+
+add_executable(blueberry_node
+  src/blueberry_node.cpp
+  src/minimal_publisher.cpp
+
+  include/imgui/imgui_demo.cpp
+  include/imgui/imgui_draw.cpp
+  include/imgui/imgui_tables.cpp
+  include/imgui/imgui_widgets.cpp
+  include/imgui/imgui.cpp
+  include/imgui/backends/imgui_impl_glfw.cpp
+  include/imgui/backends/imgui_impl_opengl3.cpp)
+
+target_link_libraries(blueberry_node OpenGL::GL GLEW::GLEW glfw)
+ament_target_dependencies(blueberry_node rclcpp std_msgs)
+
 target_include_directories(blueberry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  include/imgui)
 target_compile_features(blueberry_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 install(TARGETS blueberry_node
