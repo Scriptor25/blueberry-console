@@ -7,21 +7,28 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
 
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 
+# find OpenGL, GLEW and GLFW
 cmake_policy(SET CMP0072 NEW)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(glfw3 3.3 REQUIRED)
 
+# add blueberry_node
 add_executable(blueberry_node
   src/blueberry_node.cpp
   src/minimal_publisher.cpp
+  
+  src/widget/diagram.cpp
+  src/widget/display.cpp
+  src/widget/image.cpp
+  src/widget/joystick.cpp
+  src/widget/terminal.cpp
+
+  src/widget/manager.cpp
 
   include/imgui/imgui_demo.cpp
   include/imgui/imgui_draw.cpp
@@ -31,9 +38,12 @@ add_executable(blueberry_node
   include/imgui/backends/imgui_impl_glfw.cpp
   include/imgui/backends/imgui_impl_opengl3.cpp)
 
+# link with OpenGL, GLEW and GLFW
 target_link_libraries(blueberry_node OpenGL::GL GLEW::GLEW glfw)
+# link with rclcpp and std_msgs
 ament_target_dependencies(blueberry_node rclcpp std_msgs)
 
+# add includes
 target_include_directories(blueberry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>

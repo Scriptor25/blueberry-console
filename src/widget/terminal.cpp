@@ -1,15 +1,8 @@
-#include "terminal.h"
-
-#include <imgui/imgui.h>
+#include "widget.h"
 
 void widget::Terminal::Render()
 {
-    if (!Open)
-        return;
-
-    ImGui::PushID(Id);
-    if (ImGui::Begin("Terminal", &Open))
+    if (ImGui::Begin(("Terminal##widget_" + std::to_string(Id)).c_str(), &Open))
         ;
     ImGui::End();
-    ImGui::PopID();
 }

@@ -7,6 +7,9 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
+#include "widget/manager.h"
+#include "widget/widget.h"
+
 #include "minimal_publisher.h"
 
 void glfw_error_callback(int error_code, const char *description)
@@ -195,6 +198,12 @@ int main(int argc, char *argv[])
   ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
   ImGui_ImplOpenGL3_Init();
 
+  widget::Manager manager;
+  manager.RegisterWidget(std::make_shared<widget::Terminal>());
+  manager.RegisterWidget(std::make_shared<widget::Image>());
+  manager.RegisterWidget(std::make_shared<widget::Image>());
+  manager.RegisterWidget(std::make_shared<widget::Image>());
+
   while (!glfwWindowShouldClose(window))
   {
     // Start the Dear ImGui frame
@@ -204,6 +213,8 @@ int main(int argc, char *argv[])
 
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     ImGui::ShowDemoWindow(); // Show demo window! :)
+
+    manager.Render();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
