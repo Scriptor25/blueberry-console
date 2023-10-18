@@ -3,18 +3,25 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
+#include <implot/implot.h>
 
-#include "widget/manager.h"
-#include "widget/widget.h"
-
-#include "minimal_publisher.h"
+#include "node.h"
 
 void glfw_error_callback(int error_code, const char *description)
 {
   printf("[GLFW 0x%08X] %s\r\n", error_code, description);
+}
+
+void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+  (void)scancode;
+  (void)mods;
+
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE)
+    glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
 void glfw_window_size_callback(GLFWwindow *window, int width, int height)
@@ -132,15 +139,39 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
   printf("[GL 0x%08X] %s %s from %s: %s\r\n", id, s_severity, s_type, s_source, message);
 }
 
+std::shared_ptr<MainNode> node;
+
+void on_imgui()
+{
+  // Status Report
+  if (ImGui::Begin("Status Report"))
+  {
+    auto &robot = node->GetRobot();
+    ImGui::Text("Drive Current   %f", robot.DriveCurrent);
+    ImGui::Text("Drive Kinematic %d", robot.DriveKinematic);
+    ImGui::Text("Drive Voltage   %f", robot.DriveVoltage);
+    ImGui::Text("Feature Mode    %d", robot.FeatureMode);
+    ImGui::Text("Info Message    %s", robot.InfoMessage.c_str());
+    ImGui::Text("MCU Current     %f", robot.MCUCurrent);
+    ImGui::Text("MCU Voltage     %f", robot.MCUVoltage);
+    ImGui::Text("Mode            %d", robot.Mode);
+    ImGui::Text("RPM             %f %f %f %f", robot.RPM[0], robot.RPM[1], robot.RPM[2], robot.RPM[3]);
+    ImGui::Text("State           %d", robot.State);
+    ImGui::Text("Temperature     %f", robot.Temperature);
+  }
+  ImGui::End();
+}
+
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
 
+  node = std::make_shared<MainNode>("/eduard/robot_status_report", "/eduard/robot_state");
+
   std::thread ros_thread(
       []()
       {
-        auto publisher = std::make_shared<MinimalPublisher>();
-        rclcpp::spin(publisher);
+        rclcpp::spin(node);
       });
 
   rclcpp::on_shutdown([&ros_thread]()
@@ -166,6 +197,7 @@ int main(int argc, char *argv[])
   }
 
   glfwSetWindowSizeCallback(window, glfw_window_size_callback);
+  glfwSetKeyCallback(window, glfw_key_callback);
 
   glfwMakeContextCurrent(window);
 
@@ -194,15 +226,11 @@ int main(int argc, char *argv[])
   io.ConfigDockingTransparentPayload = true;
   io.ConfigViewportsNoDecoration = false;
 
+  ImPlot::CreateContext();
+
   // Setup Platform/Renderer backends
   ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
   ImGui_ImplOpenGL3_Init();
-
-  widget::Manager manager;
-  manager.RegisterWidget(std::make_shared<widget::Terminal>());
-  manager.RegisterWidget(std::make_shared<widget::Image>());
-  manager.RegisterWidget(std::make_shared<widget::Image>());
-  manager.RegisterWidget(std::make_shared<widget::Image>());
 
   while (!glfwWindowShouldClose(window))
   {
@@ -212,9 +240,8 @@ int main(int argc, char *argv[])
     ImGui::NewFrame();
 
     ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-    ImGui::ShowDemoWindow(); // Show demo window! :)
 
-    manager.Render();
+    on_imgui();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -235,6 +262,8 @@ int main(int argc, char *argv[])
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
+
+  ImPlot::DestroyContext();
   ImGui::DestroyContext();
 
   glfwDestroyWindow(window);

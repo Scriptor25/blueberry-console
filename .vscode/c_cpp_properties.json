@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/include/**",
-                "/opt/ros/humble/include/**"
+                "/opt/ros/humble/include/**",
+                "/home/schre/workspace/install/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
