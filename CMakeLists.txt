@@ -28,6 +28,7 @@ find_package(glfw3 3.3 REQUIRED)
 
 # add blueberry_node
 add_executable(blueberry_node
+  src/stb_image.cpp
   src/blueberry_node.cpp
   src/node.cpp
   
@@ -61,6 +62,7 @@ ament_target_dependencies(blueberry_node
 target_include_directories(blueberry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
+  include/stb
   include/imgui
   include/implot)
 target_compile_features(blueberry_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17

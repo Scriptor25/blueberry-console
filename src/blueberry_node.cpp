@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/twist.hpp>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -9,6 +10,32 @@
 #include <implot/implot.h>
 
 #include "node.h"
+
+using namespace std::chrono_literals;
+
+std::shared_ptr<MainNode> node;
+size_t joystick = 0;
+
+std::pair<bool, bool> enable_button;
+std::pair<bool, bool> disable_button;
+
+void on_enable()
+{
+  auto &setmode = node->GetSetMode();
+  edu_robot::srv::SetMode_Request::SharedPtr request = std::make_shared<edu_robot::srv::SetMode_Request>();
+  request->mode.mode = 2;
+
+  setmode->async_send_request(request);
+}
+
+void on_disable()
+{
+  auto &setmode = node->GetSetMode();
+  edu_robot::srv::SetMode_Request::SharedPtr request = std::make_shared<edu_robot::srv::SetMode_Request>();
+  request->mode.mode = 1;
+
+  setmode->async_send_request(request);
+}
 
 void glfw_error_callback(int error_code, const char *description)
 {
@@ -22,6 +49,11 @@ void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, in
 
   if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE)
     glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+  if (key == GLFW_KEY_E && action == GLFW_RELEASE)
+    on_enable();
+  if (key == GLFW_KEY_Q && action == GLFW_RELEASE)
+    on_disable();
 }
 
 void glfw_window_size_callback(GLFWwindow *window, int width, int height)
@@ -139,42 +171,99 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
   printf("[GL 0x%08X] %s %s from %s: %s\r\n", id, s_severity, s_type, s_source, message);
 }
 
-std::shared_ptr<MainNode> node;
-
 void on_imgui()
 {
-  // Status Report
+  auto &robot = node->GetRobot();
+
   if (ImGui::Begin("Status Report"))
   {
-    auto &robot = node->GetRobot();
-    ImGui::Text("Drive Current   %f", robot.DriveCurrent);
-    ImGui::Text("Drive Kinematic %d", robot.DriveKinematic);
-    ImGui::Text("Drive Voltage   %f", robot.DriveVoltage);
-    ImGui::Text("Feature Mode    %d", robot.FeatureMode);
-    ImGui::Text("Info Message    %s", robot.InfoMessage.c_str());
-    ImGui::Text("MCU Current     %f", robot.MCUCurrent);
-    ImGui::Text("MCU Voltage     %f", robot.MCUVoltage);
-    ImGui::Text("Mode            %d", robot.Mode);
-    ImGui::Text("RPM             %f %f %f %f", robot.RPM[0], robot.RPM[1], robot.RPM[2], robot.RPM[3]);
-    ImGui::Text("State           %d", robot.State);
-    ImGui::Text("Temperature     %f", robot.Temperature);
+    if (ImPlot::BeginPlot("Power", ImVec2(-1, -1)))
+    {
+      ImPlot::PlotLine("Drive Current", robot.DriveCurrent.data(), robot.DriveCurrent.size());
+      ImPlot::PlotLine("Drive Voltage", robot.DriveVoltage.data(), robot.DriveVoltage.size());
+      ImPlot::PlotLine("MCU Current", robot.MCUCurrent.data(), robot.MCUCurrent.size());
+      ImPlot::PlotLine("MCU Voltage", robot.MCUVoltage.data(), robot.MCUVoltage.size());
+      ImPlot::PlotLine("Temperature", robot.Temperature.data(), robot.Temperature.size());
+
+      ImPlot::EndPlot();
+    }
   }
   ImGui::End();
+
+  if (ImGui::Begin("Camera"))
+  {
+    ImGui::Image(0, ImVec2(-1, -1));
+  }
+  ImGui::End();
+
+  if (ImGui::Begin("Joysticks"))
+  {
+    if (ImGui::BeginCombo("Select", glfwJoystickPresent(joystick) ? glfwGetJoystickName(joystick) : "<disconnected>"))
+    {
+      for (size_t i = 0; i < 16; i++)
+      {
+        ImGui::PushID(i);
+        bool selected = i == joystick;
+        const char *name = glfwJoystickPresent(i) ? glfwGetJoystickName(i) : "<disconnected>";
+        if (ImGui::Selectable(name))
+          joystick = i;
+        if (selected)
+          ImGui::SetItemDefaultFocus();
+
+        ImGui::PopID();
+      }
+      ImGui::EndCombo();
+    }
+  }
+  ImGui::End();
+}
+
+void on_input()
+{
+  if (!glfwJoystickPresent(joystick))
+    return;
+
+  geometry_msgs::msg::Twist msg;
+
+  int axes_count;
+  int buttons_count;
+  auto axes = glfwGetJoystickAxes(joystick, &axes_count);
+  auto buttons = glfwGetJoystickButtons(joystick, &buttons_count);
+
+  for (int i = 0; i < axes_count; i++)
+    printf("%f ", axes[i]);
+  printf("\r\n");
+  for (int i = 0; i < buttons_count; i++)
+    printf("%d ", buttons[i]);
+  printf("\r\n");
+
+  enable_button.first = enable_button.second;
+  enable_button.second = buttons[0];
+
+  disable_button.first = disable_button.second;
+  disable_button.second = buttons[1];
+
+  if (enable_button.first && !enable_button.second)
+    on_enable();
+  if (disable_button.first && !disable_button.second)
+    on_disable();
+
+  float gas = axes[5] * 0.5 + 0.5;
+  msg.linear.x = axes[1] * gas;
+  msg.angular.z = axes[0] * gas;
+
+  node->GetVelPub()->publish(msg);
 }
 
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
 
-  node = std::make_shared<MainNode>("/eduard/robot_status_report", "/eduard/robot_state");
+  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/dyn_camp", "/eduard/set_mode");
+  std::thread ros_thread([]
+                         { rclcpp::spin(node); });
 
-  std::thread ros_thread(
-      []()
-      {
-        rclcpp::spin(node);
-      });
-
-  rclcpp::on_shutdown([&ros_thread]()
+  rclcpp::on_shutdown([&ros_thread]
                       { ros_thread.~thread(); });
 
   // create GLFW window
@@ -222,6 +311,7 @@ int main(int argc, char *argv[])
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // IF using Docking Branch
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;   // Enable Multi Viewports
+  io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad; // Disable GUI Controller Input
 
   io.ConfigDockingTransparentPayload = true;
   io.ConfigViewportsNoDecoration = false;
@@ -258,6 +348,8 @@ int main(int argc, char *argv[])
 
     glfwPollEvents();
     glfwSwapBuffers(window);
+
+    on_input();
   }
 
   ImGui_ImplOpenGL3_Shutdown();

@@ -6,42 +6,53 @@
 #include <edu_robot/msg/robot_state.hpp>
 #include <edu_robot/msg/robot_status_report.hpp>
 #include <edu_robot/msg/state.hpp>
+#include <edu_robot/srv/set_mode.hpp>
 
+#include <geometry_msgs/msg/twist.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 // every status and latest info about the robot
 struct Robot
 {
-    float DriveCurrent = 0;
-    float DriveVoltage = 0;
-    float MCUCurrent = 0;
-    float MCUVoltage = 0;
-    float RPM[4];
-    float Temperature = 0;
+    std::vector<float> DriveCurrent;
+    std::vector<float> DriveVoltage;
+    std::vector<float> MCUCurrent;
+    std::vector<float> MCUVoltage;
+    std::vector<float> Temperature;
 
-    uint8_t Mode = 0;
-    uint8_t DriveKinematic = 0;
-    uint8_t FeatureMode = 0;
+    size_t n = 0;
+};
 
-    uint8_t State = 0;
-
-    std::string InfoMessage;
+struct Camera
+{
+    int Width = 0, Height = 0;
+    void *Ptr;
 };
 
 class MainNode : public rclcpp::Node
 {
 public:
-    MainNode(const std::string &, const std::string &);
+    MainNode(const std::string &, const std::string &, const std::string &, const std::string &);
 
     const Robot &GetRobot() const { return m_Robot; }
+    const Camera &GetCamera() const { return m_Camera; }
+
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr GetVelPub() { return m_Publisher_Velocity; }
+    rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr &GetSetMode() { return m_Client_SetMode; }
 
 private:
     void on_robot_status_report(const edu_robot::msg::RobotStatusReport::SharedPtr);
-    void on_robot_state(const edu_robot::msg::RobotState::SharedPtr);
+    void on_cam_image(const sensor_msgs::msg::CompressedImage::SharedPtr);
 
 private:
     Robot m_Robot;
+    Camera m_Camera;
 
     rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr m_Subscription_RobotStatusReport;
-    rclcpp::Subscription<edu_robot::msg::RobotState>::SharedPtr m_Subscription_RobotState;
+    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr m_Subscription_CamImage;
+
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_Publisher_Velocity;
+
+    rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr m_Client_SetMode;
 };
