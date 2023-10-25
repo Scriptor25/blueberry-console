@@ -1,5 +1,6 @@
 [submodule "include/imgui"]
 	path = include/imgui
+	branch = docking
 	url = https://github.com/ocornut/imgui.git
 [submodule "include/implot"]
 	path = include/implot
