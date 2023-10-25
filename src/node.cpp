@@ -15,7 +15,7 @@ MainNode::MainNode(const std::string &topic_robot_status_report, const std::stri
         topic_robot_status_report,
         qos_policy,
         std::bind(&MainNode::on_robot_status_report, this, _1));
-    m_Subscription_CamImage = create_subscription<sensor_msgs::msg::CompressedImage>(
+    m_Subscription_CamImage = create_subscription<sensor_msgs::msg::Image>(
         topic_cam_image,
         qos_policy,
         std::bind(&MainNode::on_cam_image, this, _1));
@@ -46,8 +46,18 @@ void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::S
     }
 }
 
-void MainNode::on_cam_image(const sensor_msgs::msg::CompressedImage::SharedPtr msg)
+void MainNode::on_cam_image(const sensor_msgs::msg::Image::SharedPtr msg)
 {
+    printf("got image");
+
+    msg->data;
+    msg->encoding;
+    msg->header;
+    msg->height;
+    msg->is_bigendian;
+    msg->step;
+    msg->width;
+
     int channels;
     auto data = stbi_load_from_memory(msg->data.data(), msg->data.size(), &m_Camera.Width, &m_Camera.Height, &channels, 3);
 

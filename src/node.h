@@ -10,6 +10,7 @@
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 // every status and latest info about the robot
@@ -43,14 +44,14 @@ public:
 
 private:
     void on_robot_status_report(const edu_robot::msg::RobotStatusReport::SharedPtr);
-    void on_cam_image(const sensor_msgs::msg::CompressedImage::SharedPtr);
+    void on_cam_image(const sensor_msgs::msg::Image::SharedPtr);
 
 private:
     Robot m_Robot;
     Camera m_Camera;
 
     rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr m_Subscription_RobotStatusReport;
-    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr m_Subscription_CamImage;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr m_Subscription_CamImage;
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_Publisher_Velocity;
 

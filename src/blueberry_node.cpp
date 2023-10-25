@@ -15,6 +15,7 @@ using namespace std::chrono_literals;
 
 std::shared_ptr<MainNode> node;
 size_t joystick = 0;
+bool imgui_controller = false;
 
 std::pair<bool, bool> enable_button;
 std::pair<bool, bool> disable_button;
@@ -37,6 +38,16 @@ void on_disable()
   setmode->async_send_request(request);
 }
 
+void toggle_imgui_controller()
+{
+  ImGuiIO &io = ImGui::GetIO();
+  imgui_controller = !imgui_controller;
+  if (imgui_controller)
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Disable GUI Controller Input
+  else
+    io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad; // Disable GUI Controller Input;
+}
+
 void glfw_error_callback(int error_code, const char *description)
 {
   printf("[GLFW 0x%08X] %s\r\n", error_code, description);
@@ -54,6 +65,8 @@ void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, in
     on_enable();
   if (key == GLFW_KEY_Q && action == GLFW_RELEASE)
     on_disable();
+  if (key == GLFW_KEY_T && action == GLFW_RELEASE)
+    toggle_imgui_controller();
 }
 
 void glfw_window_size_callback(GLFWwindow *window, int width, int height)
@@ -175,6 +188,12 @@ void on_imgui()
 {
   auto &robot = node->GetRobot();
 
+  if (ImGui::Begin("Help | Controls"))
+  {
+    ImGui::Text("[T] Toggle ImGui Controller Usage");
+  }
+  ImGui::End();
+
   if (ImGui::Begin("Status Report"))
   {
     if (ImPlot::BeginPlot("Power", ImVec2(-1, -1)))
@@ -192,12 +211,13 @@ void on_imgui()
 
   if (ImGui::Begin("Camera"))
   {
-    ImGui::Image(0, ImVec2(-1, -1));
+    ImGui::Image(node->GetCamera().Ptr, ImVec2(-1, -1));
   }
   ImGui::End();
 
   if (ImGui::Begin("Joysticks"))
   {
+    ImGui::Text("ImGui %susing controller", imgui_controller ? "" : "not ");
     if (ImGui::BeginCombo("Select", glfwJoystickPresent(joystick) ? glfwGetJoystickName(joystick) : "<disconnected>"))
     {
       for (size_t i = 0; i < 16; i++)
@@ -230,12 +250,12 @@ void on_input()
   auto axes = glfwGetJoystickAxes(joystick, &axes_count);
   auto buttons = glfwGetJoystickButtons(joystick, &buttons_count);
 
-  for (int i = 0; i < axes_count; i++)
+  /*for (int i = 0; i < axes_count; i++)
     printf("%f ", axes[i]);
   printf("\r\n");
   for (int i = 0; i < buttons_count; i++)
     printf("%d ", buttons[i]);
-  printf("\r\n");
+  printf("\r\n");*/
 
   enable_button.first = enable_button.second;
   enable_button.second = buttons[0];
@@ -259,7 +279,7 @@ int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
 
-  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/dyn_camp", "/eduard/set_mode");
+  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/image_raw", "/eduard/set_mode");
   std::thread ros_thread([]
                          { rclcpp::spin(node); });
 
