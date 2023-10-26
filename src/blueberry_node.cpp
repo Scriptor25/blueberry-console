@@ -19,6 +19,8 @@ size_t joystick = 0;
 std::pair<bool, bool> enable_button;
 std::pair<bool, bool> disable_button;
 
+bool orientation = true;
+
 void on_enable()
 {
   auto &setmode = node->GetSetMode();
@@ -54,6 +56,8 @@ void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, in
     on_enable();
   if (key == GLFW_KEY_Q && action == GLFW_RELEASE)
     on_disable();
+  if (key == GLFW_KEY_F && action == GLFW_RELEASE)
+    orientation = !orientation;
 }
 
 void glfw_window_size_callback(GLFWwindow *window, int width, int height)
@@ -249,8 +253,11 @@ void on_input()
     on_disable();
 
   float gas = axes[5] * 0.5 + 0.5;
-  msg.linear.x = axes[1] * gas;
-  msg.angular.z = axes[0] * gas;
+  if(orientation)
+    msg.linear.x = -1 * axes[1] * gas;
+  else
+    msg.linear.x = axes[1] * gas;
+  msg.angular.z = -1 * axes[0] * gas;
 
   node->GetVelPub()->publish(msg);
 }
