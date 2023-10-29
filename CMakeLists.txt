@@ -56,6 +56,7 @@ ament_target_dependencies(blueberry_node
     geometry_msgs
     tf2
     tf2_geometry_msgs
+    # image_transport
 )
 
 # add includes

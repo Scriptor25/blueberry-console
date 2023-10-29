@@ -15,9 +15,12 @@ using namespace std::chrono_literals;
 
 std::shared_ptr<MainNode> node;
 size_t joystick = 0;
+bool imgui_controller = false;
 
 std::pair<bool, bool> enable_button;
 std::pair<bool, bool> disable_button;
+
+bool orientation = true;
 
 void on_enable()
 {
@@ -37,6 +40,16 @@ void on_disable()
   setmode->async_send_request(request);
 }
 
+void toggle_imgui_controller()
+{
+  ImGuiIO &io = ImGui::GetIO();
+  imgui_controller = !imgui_controller;
+  if (imgui_controller)
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Disable GUI Controller Input
+  else
+    io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad; // Disable GUI Controller Input;
+}
+
 void glfw_error_callback(int error_code, const char *description)
 {
   printf("[GLFW 0x%08X] %s\r\n", error_code, description);
@@ -54,6 +67,10 @@ void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, in
     on_enable();
   if (key == GLFW_KEY_Q && action == GLFW_RELEASE)
     on_disable();
+  if (key == GLFW_KEY_T && action == GLFW_RELEASE)
+    toggle_imgui_controller();
+  if (key == GLFW_KEY_F && action == GLFW_RELEASE)
+    orientation = !orientation;
 }
 
 void glfw_window_size_callback(GLFWwindow *window, int width, int height)
@@ -174,6 +191,46 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
 void on_imgui()
 {
   auto &robot = node->GetRobot();
+  auto &cam = node->GetCamera();
+
+  if (ImGui::Begin("Help"))
+  {
+    ImGui::Text("Controls %sinverted", orientation ? "" : "not ");
+
+    if (ImGui::BeginTable("Controls", 2))
+    {
+      ImGui::TableSetupColumn("Key");
+      ImGui::TableSetupColumn("Description");
+
+      ImGui::TableNextColumn();
+      ImGui::Text("[T]");
+      ImGui::TableNextColumn();
+      ImGui::Text("Toggle ImGui Controller Usage");
+
+      ImGui::TableNextColumn();
+      ImGui::Text("[E]");
+      ImGui::TableNextColumn();
+      ImGui::Text("Enable Motor Control");
+
+      ImGui::TableNextColumn();
+      ImGui::Text("[Q]");
+      ImGui::TableNextColumn();
+      ImGui::Text("Disable Motor Control");
+
+      ImGui::TableNextColumn();
+      ImGui::Text("[F]");
+      ImGui::TableNextColumn();
+      ImGui::Text("Invert Motor Control");
+
+      ImGui::TableNextColumn();
+      ImGui::Text("[Esc]");
+      ImGui::TableNextColumn();
+      ImGui::Text("Exit Program");
+
+      ImGui::EndTable();
+    }
+  }
+  ImGui::End();
 
   if (ImGui::Begin("Status Report"))
   {
@@ -191,13 +248,12 @@ void on_imgui()
   ImGui::End();
 
   if (ImGui::Begin("Camera"))
-  {
-    ImGui::Image(0, ImVec2(-1, -1));
-  }
+    ImGui::Image((ImTextureID)(intptr_t)cam.Ptr, ImVec2(cam.Width, cam.Height));
   ImGui::End();
 
   if (ImGui::Begin("Joysticks"))
   {
+    ImGui::Text("ImGui %susing controller", imgui_controller ? "" : "not ");
     if (ImGui::BeginCombo("Select", glfwJoystickPresent(joystick) ? glfwGetJoystickName(joystick) : "<disconnected>"))
     {
       for (size_t i = 0; i < 16; i++)
@@ -230,12 +286,12 @@ void on_input()
   auto axes = glfwGetJoystickAxes(joystick, &axes_count);
   auto buttons = glfwGetJoystickButtons(joystick, &buttons_count);
 
-  for (int i = 0; i < axes_count; i++)
+  /*for (int i = 0; i < axes_count; i++)
     printf("%f ", axes[i]);
   printf("\r\n");
   for (int i = 0; i < buttons_count; i++)
     printf("%d ", buttons[i]);
-  printf("\r\n");
+  printf("\r\n");*/
 
   enable_button.first = enable_button.second;
   enable_button.second = buttons[0];
@@ -249,8 +305,8 @@ void on_input()
     on_disable();
 
   float gas = axes[5] * 0.5 + 0.5;
-  msg.linear.x = axes[1] * gas;
-  msg.angular.z = axes[0] * gas;
+  msg.linear.x = axes[1] * gas * (orientation ? -1 : 1);
+  msg.angular.z = -axes[0] * gas;
 
   node->GetVelPub()->publish(msg);
 }
@@ -258,13 +314,6 @@ void on_input()
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
-
-  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/dyn_camp", "/eduard/set_mode");
-  std::thread ros_thread([]
-                         { rclcpp::spin(node); });
-
-  rclcpp::on_shutdown([&ros_thread]
-                      { ros_thread.~thread(); });
 
   // create GLFW window
   glfwSetErrorCallback(glfw_error_callback);
@@ -302,6 +351,14 @@ int main(int argc, char *argv[])
   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
   glClearColor(0.1f, 0.4f, 0.8f, 1.0f);
+
+  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/image_raw/compressed", "/eduard/set_mode");
+
+  std::thread ros_thread([]
+                         { rclcpp::spin(node); });
+
+  rclcpp::on_shutdown([&ros_thread]
+                      { ros_thread.~thread(); });
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();

@@ -2,8 +2,6 @@
 
 #include <stb_image.h>
 
-#include <GL/glew.h>
-
 using std::placeholders::_1;
 
 MainNode::MainNode(const std::string &topic_robot_status_report, const std::string &topic_velocity, const std::string &topic_cam_image, const std::string &service_setmode) : Node("blueberry_node")
@@ -15,17 +13,29 @@ MainNode::MainNode(const std::string &topic_robot_status_report, const std::stri
         topic_robot_status_report,
         qos_policy,
         std::bind(&MainNode::on_robot_status_report, this, _1));
-    m_Subscription_CamImage = create_subscription<sensor_msgs::msg::CompressedImage>(
-        topic_cam_image,
-        qos_policy,
-        std::bind(&MainNode::on_cam_image, this, _1));
+    // m_Subscription_CamImage = create_subscription<sensor_msgs::msg::CompressedImage>(
+    //     topic_cam_image,
+    //     qos_policy,
+    //     std::bind(&MainNode::on_cam_image, this, _1));
 
     m_Publisher_Velocity = create_publisher<geometry_msgs::msg::Twist>(topic_velocity, 10);
 
     m_Client_SetMode = create_client<edu_robot::srv::SetMode>(service_setmode);
+
+    glGenTextures(1, &m_Camera.Ptr);
+    glBindTexture(GL_TEXTURE_2D, m_Camera.Ptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 }
 
-void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::SharedPtr msg)
+MainNode::~MainNode()
+{
+    glDeleteTextures(1, &m_Camera.Ptr);
+}
+
+void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &msg)
 {
     m_Robot.n++;
 
@@ -46,20 +56,20 @@ void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::S
     }
 }
 
-void MainNode::on_cam_image(const sensor_msgs::msg::CompressedImage::SharedPtr msg)
+void MainNode::on_cam_image(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &msg)
 {
     int channels;
-    auto data = stbi_load_from_memory(msg->data.data(), msg->data.size(), &m_Camera.Width, &m_Camera.Height, &channels, 3);
+    auto data = stbi_load_from_memory(msg->data.data(), msg->data.size(), &m_Camera.Width, &m_Camera.Height, &channels, STBI_rgb);
+    if (!data)
+    {
+        printf("%s\r\n", stbi_failure_reason());
+        return;
+    }
 
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_Camera.Width, m_Camera.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    m_Camera.Ptr = (void *)texture;
+    printf("got image %s %d [%d %d]\r\n", msg->format.c_str(), channels, m_Camera.Width, m_Camera.Height);
+
+    glBindTexture(GL_TEXTURE_2D, m_Camera.Ptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_Camera.Width, m_Camera.Height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
 
     stbi_image_free(data);
 }

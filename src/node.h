@@ -10,9 +10,11 @@
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-// every status and latest info about the robot
+#include <GL/glew.h>
+
 struct Robot
 {
     std::vector<float> DriveCurrent;
@@ -27,13 +29,14 @@ struct Robot
 struct Camera
 {
     int Width = 0, Height = 0;
-    void *Ptr;
+    GLuint Ptr = 0;
 };
 
 class MainNode : public rclcpp::Node
 {
 public:
     MainNode(const std::string &, const std::string &, const std::string &, const std::string &);
+    ~MainNode();
 
     const Robot &GetRobot() const { return m_Robot; }
     const Camera &GetCamera() const { return m_Camera; }
@@ -42,8 +45,8 @@ public:
     rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr &GetSetMode() { return m_Client_SetMode; }
 
 private:
-    void on_robot_status_report(const edu_robot::msg::RobotStatusReport::SharedPtr);
-    void on_cam_image(const sensor_msgs::msg::CompressedImage::SharedPtr);
+    void on_robot_status_report(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &);
+    void on_cam_image(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &);
 
 private:
     Robot m_Robot;
