@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 #include <edu_robot/msg/mode.hpp>
@@ -39,7 +40,9 @@ public:
     ~MainNode();
 
     const Robot &GetRobot() const { return m_Robot; }
-    const std::string &GetBarcode() const { return m_Barcode; }
+    const std::map<std::string, size_t> &GetBarcodes() const { return m_Barcodes; }
+
+    void ClearBarcodes() { m_Barcodes.clear(); }
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr GetVelPub() { return m_Publisher_Velocity; }
     rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr &GetSetMode() { return m_Client_SetMode; }
@@ -50,7 +53,7 @@ private:
 
 private:
     Robot m_Robot;
-    std::string m_Barcode;
+    std::map<std::string, size_t> m_Barcodes;
 
     rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr m_Subscription_RobotStatusReport;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr m_Subscription_Barcode;

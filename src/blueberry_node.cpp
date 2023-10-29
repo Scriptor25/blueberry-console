@@ -231,9 +231,20 @@ void on_imgui()
   }
   ImGui::End();
 
+  if (ImGui::Begin("Barcodes"))
+  {
+    if (ImGui::Button("Clear Barcodes"))
+      node->ClearBarcodes();
+
+    for (auto &entry : node->GetBarcodes())
+    {
+      ImGui::Text("%s (%lu)", entry.first.c_str(), entry.second);
+    }
+  }
+  ImGui::End();
+
   if (ImGui::Begin("Status Report"))
   {
-    ImGui::Text("Latest Barcode: %s", node->GetBarcode().c_str());
     if (ImPlot::BeginPlot("Power", ImVec2(-1, -1)))
     {
       ImPlot::PlotLine("Drive Current", robot.DriveCurrent.data(), robot.DriveCurrent.size());

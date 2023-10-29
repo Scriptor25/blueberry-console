@@ -50,5 +50,7 @@ void MainNode::on_status(const edu_robot::msg::RobotStatusReport::ConstSharedPtr
 
 void MainNode::on_barcode(const std_msgs::msg::String::ConstSharedPtr &msg)
 {
-    m_Barcode = msg->data;
+    if (!m_Barcodes[msg->data])
+        m_Barcodes[msg->data] = 0;
+    m_Barcodes[msg->data]++;
 }
