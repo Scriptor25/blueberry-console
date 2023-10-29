@@ -13,7 +13,8 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-// every status and latest info about the robot
+#include <GL/glew.h>
+
 struct Robot
 {
     std::vector<float> DriveCurrent;
@@ -28,13 +29,14 @@ struct Robot
 struct Camera
 {
     int Width = 0, Height = 0;
-    void *Ptr;
+    GLuint Ptr = 0;
 };
 
 class MainNode : public rclcpp::Node
 {
 public:
     MainNode(const std::string &, const std::string &, const std::string &, const std::string &);
+    ~MainNode();
 
     const Robot &GetRobot() const { return m_Robot; }
     const Camera &GetCamera() const { return m_Camera; }
@@ -43,15 +45,15 @@ public:
     rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr &GetSetMode() { return m_Client_SetMode; }
 
 private:
-    void on_robot_status_report(const edu_robot::msg::RobotStatusReport::SharedPtr);
-    void on_cam_image(const sensor_msgs::msg::Image::SharedPtr);
+    void on_robot_status_report(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &);
+    void on_cam_image(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &);
 
 private:
     Robot m_Robot;
     Camera m_Camera;
 
     rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr m_Subscription_RobotStatusReport;
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr m_Subscription_CamImage;
+    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr m_Subscription_CamImage;
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_Publisher_Velocity;
 
