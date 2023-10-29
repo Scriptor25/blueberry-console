@@ -4,38 +4,30 @@
 
 using std::placeholders::_1;
 
-MainNode::MainNode(const std::string &topic_robot_status_report, const std::string &topic_velocity, const std::string &topic_cam_image, const std::string &service_setmode) : Node("blueberry_node")
+MainNode::MainNode(const std::string &status, const std::string &velocity, const std::string &barcode, const std::string &setmode) : Node("blueberry_node")
 {
     auto qos_policy = rclcpp::QoS(10);
     qos_policy.reliability(rclcpp::ReliabilityPolicy::BestEffort);
 
     m_Subscription_RobotStatusReport = create_subscription<edu_robot::msg::RobotStatusReport>(
-        topic_robot_status_report,
+        status,
         qos_policy,
-        std::bind(&MainNode::on_robot_status_report, this, _1));
-    // m_Subscription_CamImage = create_subscription<sensor_msgs::msg::CompressedImage>(
-    //     topic_cam_image,
-    //     qos_policy,
-    //     std::bind(&MainNode::on_cam_image, this, _1));
+        std::bind(&MainNode::on_status, this, _1));
+    m_Subscription_Barcode = create_subscription<std_msgs::msg::String>(
+        barcode,
+        qos_policy,
+        std::bind(&MainNode::on_barcode, this, _1));
 
-    m_Publisher_Velocity = create_publisher<geometry_msgs::msg::Twist>(topic_velocity, 10);
+    m_Publisher_Velocity = create_publisher<geometry_msgs::msg::Twist>(velocity, 10);
 
-    m_Client_SetMode = create_client<edu_robot::srv::SetMode>(service_setmode);
-
-    glGenTextures(1, &m_Camera.Ptr);
-    glBindTexture(GL_TEXTURE_2D, m_Camera.Ptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    m_Client_SetMode = create_client<edu_robot::srv::SetMode>(setmode);
 }
 
 MainNode::~MainNode()
 {
-    glDeleteTextures(1, &m_Camera.Ptr);
 }
 
-void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &msg)
+void MainNode::on_status(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &msg)
 {
     m_Robot.n++;
 
@@ -56,20 +48,9 @@ void MainNode::on_robot_status_report(const edu_robot::msg::RobotStatusReport::C
     }
 }
 
-void MainNode::on_cam_image(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &msg)
+void MainNode::on_barcode(const std_msgs::msg::String::ConstSharedPtr &msg)
 {
-    int channels;
-    auto data = stbi_load_from_memory(msg->data.data(), msg->data.size(), &m_Camera.Width, &m_Camera.Height, &channels, STBI_rgb);
-    if (!data)
-    {
-        printf("%s\r\n", stbi_failure_reason());
-        return;
-    }
-
-    printf("got image %s %d [%d %d]\r\n", msg->format.c_str(), channels, m_Camera.Width, m_Camera.Height);
-
-    glBindTexture(GL_TEXTURE_2D, m_Camera.Ptr);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, m_Camera.Width, m_Camera.Height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
-
-    stbi_image_free(data);
+    if (!m_Barcodes[msg->data])
+        m_Barcodes[msg->data] = 0;
+    m_Barcodes[msg->data]++;
 }

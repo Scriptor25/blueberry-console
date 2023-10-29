@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 #include <edu_robot/msg/mode.hpp>
@@ -10,7 +11,7 @@
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <GL/glew.h>
@@ -35,25 +36,27 @@ struct Camera
 class MainNode : public rclcpp::Node
 {
 public:
-    MainNode(const std::string &, const std::string &, const std::string &, const std::string &);
+    MainNode(const std::string &status, const std::string &velocity, const std::string &barcode, const std::string &setmode);
     ~MainNode();
 
     const Robot &GetRobot() const { return m_Robot; }
-    const Camera &GetCamera() const { return m_Camera; }
+    const std::map<std::string, size_t> &GetBarcodes() const { return m_Barcodes; }
+
+    void ClearBarcodes() { m_Barcodes.clear(); }
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr GetVelPub() { return m_Publisher_Velocity; }
     rclcpp::Client<edu_robot::srv::SetMode>::SharedPtr &GetSetMode() { return m_Client_SetMode; }
 
 private:
-    void on_robot_status_report(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &);
-    void on_cam_image(const sensor_msgs::msg::CompressedImage::ConstSharedPtr &);
+    void on_status(const edu_robot::msg::RobotStatusReport::ConstSharedPtr &msg);
+    void on_barcode(const std_msgs::msg::String::ConstSharedPtr &msg);
 
 private:
     Robot m_Robot;
-    Camera m_Camera;
+    std::map<std::string, size_t> m_Barcodes;
 
     rclcpp::Subscription<edu_robot::msg::RobotStatusReport>::SharedPtr m_Subscription_RobotStatusReport;
-    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr m_Subscription_CamImage;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr m_Subscription_Barcode;
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_Publisher_Velocity;
 
