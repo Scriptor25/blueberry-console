@@ -191,7 +191,6 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
 void on_imgui()
 {
   auto &robot = node->GetRobot();
-  auto &cam = node->GetCamera();
 
   if (ImGui::Begin("Help"))
   {
@@ -234,6 +233,7 @@ void on_imgui()
 
   if (ImGui::Begin("Status Report"))
   {
+    ImGui::Text("Latest Barcode: %s", node->GetBarcode().c_str());
     if (ImPlot::BeginPlot("Power", ImVec2(-1, -1)))
     {
       ImPlot::PlotLine("Drive Current", robot.DriveCurrent.data(), robot.DriveCurrent.size());
@@ -245,10 +245,6 @@ void on_imgui()
       ImPlot::EndPlot();
     }
   }
-  ImGui::End();
-
-  if (ImGui::Begin("Camera"))
-    ImGui::Image((ImTextureID)(intptr_t)cam.Ptr, ImVec2(cam.Width, cam.Height));
   ImGui::End();
 
   if (ImGui::Begin("Joysticks"))
@@ -352,7 +348,7 @@ int main(int argc, char *argv[])
 
   glClearColor(0.1f, 0.4f, 0.8f, 1.0f);
 
-  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/image_raw/compressed", "/eduard/set_mode");
+  node = std::make_shared<MainNode>("/eduard/status_report", "/eduard/cmd_vel", "/barcode", "/eduard/set_mode");
 
   std::thread ros_thread([]
                          { rclcpp::spin(node); });
